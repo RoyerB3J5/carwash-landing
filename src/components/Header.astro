@@ -1,24 +1,39 @@
 ---
-
+const {hash} = Astro.url
+const isActive = (path: string) => hash === path
 ---
-
-<header class = "w-full fixed top-0 z-10 flex items-center mx-auto">
+<style>
+  [data-section] {
+    width: var(--scroll-width, 0%);
+  }
+  li:hover [data-section]{
+    width: 100% !important;
+  }
+</style>
+<header class = "w-full fixed top-0 z-10 flex items-center mx-auto bg-primary">
   <nav class="w-full flex justify-between items-center max-w-6xl mx-auto py-7 px-6">
-    <a href="" class = "text-h4 text-white font-semibold">
+    <a href="#hero" class = "text-h4 text-white font-semibold">
       CarControl<span class="text-accent">Pro</span>
     </a>
     <div class="flex justify-center items-center gap-10">
       <ul class="flex justify-center items-center gap-x-7 text-white text-base font-medium">
-        <li class="cursor-pointer">
-          Funciones 
+        <li class="cursor-pointer relative group" >
+          <a href="#functions">Funciones</a> 
+          <span class:list={['absolute bottom-0 left-0 w-0 h-0.5  bg-accent  transition-all duration-300 ease-in-out', isActive('#functions') && 'w-full']} data-section="#functions"></span>
         </li>
-        <li class="cursor-pointer">
-          Beneficios 
+        <li class="cursor-pointer relative group" >
+          <a href="#benefits">Beneficios</a> 
+         <span class:list={['absolute bottom-0 left-0 w-0 h-0.5 bg-accent transition-all duration-300 ease-in-out', isActive('#benefits ') && 'w-full']} data-section="#benefits"></span>
+
         </li>
-        <li class="cursor-pointer">
-          Galeria
+        <li class="cursor-pointer relative group">
+          <a href="#gallery">Galeria</a>
+           <span class:list={['absolute bottom-0 left-0 w-0 h-0.5 bg-accent  transition-all duration-300 ease-in-out', isActive('#gallery') && 'w-full']} data-section="#gallery"></span>
         </li>
-        <li class="cursor-pointer">Precio</li>
+        <li class="cursor-pointer relative group">
+          <a href="#prices">Precios</a>
+          <span class:list={['absolute bottom-0 left-0 w-0 h-0.5 bg-accent  transition-all duration-300 ease-in-out', isActive('#prices ') && 'w-full']} data-section="#prices"></span>
+        </li>
       </ul>
       <button class="bg-accent font-medium rounded-lg px-5 py-1.5 hover:-translate-y-0.5 transition-all duration-300 ease-in-out cursor-pointer ">
         Mas Info. 
@@ -27,4 +42,107 @@
   </nav>
   
 </header>
+<script>
+  interface SectionInfo{
+    section: HTMLElement;
+    indicator: HTMLElement
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=> {
+    const sections: Record<string,SectionInfo> = {}
+    const navIndicators = document.querySelectorAll<HTMLElement>('[data-section]')
+
+    navIndicators.forEach(indicator => {
+      const sectionId = indicator.dataset.section?.substring(1) 
+      if (sectionId){
+        const section = document.getElementById(sectionId)
+        if(section){
+          sections[sectionId] = {
+            section,
+            indicator
+          }
+        }
+      }
+    })
+
+    const updateScrollIndicators = () => {
+      const scrollPosition = window.scrollY 
+      const windowHeight = window.innerHeight
+      let maxVisibilitySection = {id: '', ratio:0}
+      //const documentHeight = document.body.scrollHeight
+
+      Object.entries(sections).forEach(([id,{section, indicator}]) => {
+        const parentLi = indicator.closest('li')
+        if (parentLi && parentLi.matches(':hover')){
+          return
+        }
+        const sectionRect = section.getBoundingClientRect()
+        const sectionTop = scrollPosition + sectionRect.top 
+        const sectionHeight = sectionRect.height
+
+        let visibilityRadio = 0 
+        if (scrollPosition <= sectionTop && scrollPosition + windowHeight >= sectionTop){
+          const visibleHeight = Math.min(scrollPosition + windowHeight - sectionTop, sectionHeight)
+          visibilityRadio = Math.min(visibleHeight / (windowHeight*0.5),1) 
+        } else if (scrollPosition > sectionTop) {
+          const distance = scrollPosition - sectionTop
+          visibilityRadio = Math.max(0, 1 - (distance / (sectionHeight * 0.5)))
+        }
+        if (visibilityRadio > maxVisibilitySection.ratio){
+          maxVisibilitySection = {id, ratio: visibilityRadio}
+        }
+        indicator.style.setProperty('--scroll-width', `${visibilityRadio*100}%`)
+      })
+      if (maxVisibilitySection.ratio > 0.6 && maxVisibilitySection.id) {
+        const newHash = `#${maxVisibilitySection.id}`
+        if (window.location.hash !== newHash){
+          try{
+            history.replaceState({},"",newHash)
+          }catch (error){
+            console.warn("No se pudo actualizar el URL:", error)
+          }
+        }
+      }
+      const currentHash = window.location.hash
+      if (currentHash){
+        navIndicators.forEach(indicator => {
+          if (indicator.dataset.section === currentHash){
+            indicator.style.setProperty('--scroll-width', '100%')
+          }
+        })
+      }
+    }
+    let isScrolling = false 
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e){
+        isScrolling = true
+      
+        setTimeout(()=> {
+          isScrolling = false
+        }, 1000);
+      })
+    })
+    window.addEventListener('scroll', () => {
+      if (!isScrolling){
+        updateScrollIndicators()
+      }
+    }, {passive : true})
+    const updateActiveStates = () => {
+      const currentHash = window.location.hash;
+      navIndicators.forEach(element => {
+        const isActive = element.dataset.section === currentHash
+        element.style.setProperty('--scroll-width', isActive ? '100%' : '0%')
+        element.classList.toggle('scroll-activate', isActive)
+      })
+    }
+    window.addEventListener('scroll',updateScrollIndicators, {passive: true})
+    window.addEventListener('resize', updateScrollIndicators, {passive: true})
+    window.addEventListener('hashchange', updateActiveStates)
+    updateScrollIndicators()
+    if (window.location.hash){
+      updateActiveStates()
+    }
+  })
+
+</script>
 
